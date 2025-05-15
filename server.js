@@ -21,8 +21,14 @@ const sessions = {};
 
 // Pay Hero API configuration
 const PAYHERO_API_URL = process.env.PAYHERO_API_URL || 'https://backend.payhero.co.ke/api/v2';
-const PAYHERO_AUTH_TOKEN = process.env.PAYHERO_AUTH_TOKEN || 'Basic eUpqa2gwZ1RRVVdFTzJXRG42a0Q6T3FEelBnRDRwZHFsdkNQaUJHcGVqcEJjNUdPMjJNQWFmSTdDd1EwOQ==';
+const PAYHERO_AUTH_TOKEN = process.env.PAYHERO_AUTH_TOKEN; // No fallback, must be set in environment
 const CALLBACK_URL = 'https://aibuilder.onrender.com/api/payment-callback';
+
+// Validate environment variables
+if (!PAYHERO_AUTH_TOKEN) {
+    console.error('PAYHERO_AUTH_TOKEN is not set in environment variables');
+    process.exit(1);
+}
 
 // Initiate STK Push
 app.post('/api/initiate-payment', async (req, res) => {
@@ -40,7 +46,7 @@ app.post('/api/initiate-payment', async (req, res) => {
         sessions[session_id] = {
             coverLetterData: req.body.coverLetterData || null,
             status: 'pending',
-            checkoutRequestID: null
+            reference: external_reference // Store reference for status check
         };
 
         const response = await axios.post(`${PAYHERO_API_URL}/payments`, {
@@ -59,12 +65,12 @@ app.post('/api/initiate-payment', async (req, res) => {
         });
 
         if (response.data.success) {
-            sessions[session_id].checkoutRequestID = response.data.CheckoutRequestID;
+            sessions[session_id].reference = response.data.reference || external_reference; // Ensure reference is set
         }
 
         res.json(response.data);
     } catch (error) {
-        console.error('Error in /api/initiate-payment:', error);
+        console.error('Error in /api/initiate-payment:', error.response ? error.response.data : error.message);
         res.status(500).json({ error: error.message });
     }
 });
@@ -73,7 +79,7 @@ app.post('/api/initiate-payment', async (req, res) => {
 app.post('/api/payment-callback', (req, res) => {
     try {
         const { response, status } = req.body;
-        const { CheckoutRequestID, ExternalReference, ResultCode } = response;
+        const { ExternalReference, ResultCode } = response;
         if (status && ResultCode === 0 && ExternalReference && sessions[ExternalReference]) {
             sessions[ExternalReference].status = 'completed';
         }
@@ -85,11 +91,14 @@ app.post('/api/payment-callback', (req, res) => {
 });
 
 // Check transaction status
-app.get('/api/transaction-status/:checkoutRequestID', async (req, res) => {
+app.get('/api/transaction-status', async (req, res) => {
     try {
-        const { checkoutRequestID } = req.params;
-        console.log(`Checking status for CheckoutRequestID: ${checkoutRequestID}`);
-        const response = await axios.get(`${PAYHERO_API_URL}/transaction/status/${checkoutRequestID}`, {
+        const { reference } = req.query;
+        if (!reference) {
+            return res.status(400).json({ error: 'Reference parameter is required' });
+        }
+        console.log(`Checking status for reference: ${reference}`);
+        const response = await axios.get(`${PAYHERO_API_URL}/transaction-status?reference=${encodeURIComponent(reference)}`, {
             headers: {
                 'Authorization': PAYHERO_AUTH_TOKEN
             }
@@ -97,7 +106,7 @@ app.get('/api/transaction-status/:checkoutRequestID', async (req, res) => {
 
         res.json(response.data);
     } catch (error) {
-        console.error(`Error in /api/transaction-status for ${checkoutRequestID}:`, error.response ? error.response.data : error.message);
+        console.error(`Error in /api/transaction-status for reference ${reference}:`, error.response ? error.response.data : error.message);
         if (error.response && error.response.status === 404) {
             res.status(404).json({ error: 'Transaction status not found on Pay Hero API' });
         } else {
