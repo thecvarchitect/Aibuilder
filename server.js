@@ -5,7 +5,7 @@ const rateLimit = require('express-rate-limit');
 const app = express();
 
 app.use(cors());
-app.set('trust proxy', true); // Enable trust proxy for Render's X-Forwarded-For header
+app.set('trust proxy', 'loopback'); // Restrict trust proxy to Render's loopback for security
 app.use(express.json());
 
 // Rate limiting: max 100 requests per 15 minutes per IP
