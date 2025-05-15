@@ -5,6 +5,7 @@ const rateLimit = require('express-rate-limit');
 const app = express();
 
 app.use(cors());
+app.set('trust proxy', true); // Enable trust proxy for Render's X-Forwarded-For header
 app.use(express.json());
 
 // Rate limiting: max 100 requests per 15 minutes per IP
@@ -21,7 +22,7 @@ const sessions = {};
 // Pay Hero API configuration
 const PAYHERO_API_URL = process.env.PAYHERO_API_URL || 'https://backend.payhero.co.ke/api/v2';
 const PAYHERO_AUTH_TOKEN = process.env.PAYHERO_AUTH_TOKEN || 'Basic eUpqa2gwZ1RRVVdFTzJXRG42a0Q6T3FEelBnRDRwZHFsdkNQaUJHcGVqcEJjNUdPMjJNQWFmSTdDd1EwOQ==';
-const CALLBACK_URL = 'https://dailyjobs.co.ke/api/payment-callback';
+const CALLBACK_URL = 'https://aibuilder.onrender.com/api/payment-callback';
 
 // Initiate STK Push
 app.post('/api/initiate-payment', async (req, res) => {
@@ -39,7 +40,7 @@ app.post('/api/initiate-payment', async (req, res) => {
         // Store cover letter data in session
         const session_id = external_reference;
         sessions[session_id] = {
-            coverLetterData: req.body.coverLetterData || localStorage.getItem('coverLetterData'),
+            coverLetterData: req.body.coverLetterData || null,
             status: 'pending',
             checkoutRequestID: null
         };
@@ -65,6 +66,7 @@ app.post('/api/initiate-payment', async (req, res) => {
 
         res.json(response.data);
     } catch (error) {
+        console.error('Error in /api/initiate-payment:', error); // Add logging
         res.status(500).json({ error: error.message });
     }
 });
@@ -79,6 +81,7 @@ app.post('/api/payment-callback', (req, res) => {
         }
         res.json({ status: 'received' });
     } catch (error) {
+        console.error('Error in /api/payment-callback:', error); // Add logging
         res.status(500).json({ error: error.message });
     }
 });
@@ -94,6 +97,7 @@ app.get('/api/transaction-status/:checkoutRequestID', async (req, res) => {
         });
         res.json(response.data);
     } catch (error) {
+        console.error('Error in /api/transaction-status:', error); // Add logging
         res.status(500).json({ error: error.message });
     }
 });
