@@ -198,7 +198,7 @@
                     provider: paymentConfig.provider,
                     network_code: paymentConfig.networkCode,
                     external_reference: reference,
-                    customer_name: 'Customer', // Can be dynamic if needed
+                    customer_name: 'Customer',
                     callback_url: paymentConfig.callbackUrl,
                     coverLetterData: coverLetterData
                 };
@@ -241,7 +241,13 @@
                 return data.reference || paymentData.external_reference;
             } catch (error) {
                 console.error('Payment initiation error:', error);
-                Swal.fire('Error', 'Failed to initiate payment. Please try again.', 'error');
+                let errorMessage = 'Failed to initiate payment. Please try again.';
+                if (error.message.includes('401')) {
+                    errorMessage = 'Payment authentication failed. Please contact support.';
+                } else if (error.message.includes('Payment initiation failed')) {
+                    errorMessage = 'Payment service is unavailable. Please try again later.';
+                }
+                Swal.fire('Error', errorMessage, 'error');
                 const submitBtn = document.getElementById('submitBtn');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="bi bi-credit-card-fill me-2"></i> Pay Now';
