@@ -1,0 +1,191 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lipa na M-PESA - DailyJobs.co.ke</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f5f5f5; font-family: 'Arial', sans-serif; }
+        .mpesa-green { background-color: #00A65F; }
+        .mpesa-green-hover:hover { background-color: #008C4F; }
+        .container { max-width: 600px; }
+        .card { border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        .logo { font-size: 2rem; font-weight: bold; color: #00A65F; }
+        .notification { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .notification-content { background: white; padding: 2rem; border-radius: 8px; text-align: center; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #00A65F; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .invalid { border-color: #ef4444; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4 sm:p-6">
+        <div class="card bg-white p-6 sm:p-8">
+            <div class="flex items-center justify-center mb-6">
+                <span class="logo">Lipa na M-PESA</span>
+            </div>
+            <h2 class="text-xl sm:text-2xl font-semibold text-center mb-4 text-gray-800">Pay for Your Cover Letter</h2>
+            <p class="text-center text-gray-600 mb-4 text-sm sm:text-base">Amount: <strong>Ksh 36</strong></p>
+            <p class="text-center text-red-600 mb-4 text-sm sm:text-base">Do not leave this screen until payment is successful.</p>
+            <div class="mb-4">
+                <label class="block text-gray-700 font-medium mb-1 text-sm sm:text-base">M-PESA Registered Phone Number</label>
+                <input type="tel" id="phoneNumber" value="" class="w-full p-2 border rounded text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0712345678">
+                <p class="text-gray-600 text-xs sm:text-sm mt-1">Enter your M-PESA registered number (e.g., 0712345678)</p>
+            </div>
+            <button id="payButton" class="w-full mpesa-green text-white p-3 rounded mpesa-green-hover text-sm sm:text-base">Pay Now</button>
+            <div id="paymentLoading" class="text-gray-600 text-center mt-4 hidden text-sm sm:text-base">
+                <div class="spinner"></div>
+                <p>Initiating payment, please check your phone...</p>
+            </div>
+            <p id="paymentMessage" class="text-red-600 text-center mt-2 hidden text-sm sm:text-base"></p>
+            <p class="text-center mt-4 text-gray-600 text-sm sm:text-base">Need help? Contact us at <a href="https://wa.me/2547XXXXXXXXX" class="text-blue-600 underline">WhatsApp</a></p>
+        </div>
+    </div>
+
+    <div id="successNotification" class="notification">
+        <div class="notification-content">
+            <h3 class="text-lg font-semibold text-green-600">Payment Successful!</h3>
+            <p class="text-gray-600 mt-2">Redirecting to download your cover letter...</p>
+        </div>
+    </div>
+
+    <script>
+        // Generate external reference: CL_YYYYMMDD_RANDOM6
+        function generateExternalReference() {
+            const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            const random = Math.random().toString(36).substr(2, 6).toUpperCase();
+            return `CL_${date}_${random}`;
+        }
+
+        // Load phone number from localStorage
+        const savedData = JSON.parse(localStorage.getItem('coverLetterData') || '{}');
+        const phoneNumberInput = document.getElementById('phoneNumber');
+        phoneNumberInput.value = savedData.phone_number || '';
+
+        // Real-time validation
+        phoneNumberInput.addEventListener('input', () => {
+            const value = phoneNumberInput.value;
+            const message = document.getElementById('paymentMessage');
+            if (value && !value.match(/^07[0-9]{8}$/)) {
+                phoneNumberInput.classList.add('invalid');
+                message.textContent = 'Please enter a valid M-PESA number (e.g., 0712345678)';
+                message.classList.remove('hidden');
+            } else {
+                phoneNumberInput.classList.remove('invalid');
+                message.classList.add('hidden');
+            }
+        });
+
+        // Pay button handler
+        document.getElementById('payButton').addEventListener('click', async () => {
+            const payButton = document.getElementById('payButton');
+            const paymentLoading = document.getElementById('paymentLoading');
+            const paymentMessage = document.getElementById('paymentMessage');
+            const successNotification = document.getElementById('successNotification');
+            const phoneNumber = phoneNumberInput.value;
+
+            if (!phoneNumber.match(/^07[0-9]{8}$/)) {
+                paymentMessage.textContent = 'Please enter a valid M-PESA registered phone number (e.g., 0712345678)';
+                paymentMessage.classList.remove('hidden');
+                phoneNumberInput.classList.add('invalid');
+                return;
+            }
+
+            payButton.disabled = true;
+            paymentLoading.classList.remove('hidden');
+            paymentMessage.classList.add('hidden');
+            phoneNumberInput.classList.remove('invalid');
+
+            try {
+                const response = await fetch('https://yourdomain.com/api/initiate-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phone_number: phoneNumber,
+                        amount: 36,
+                        channel_id: 2221,
+                        provider: 'm-pesa',
+                        external_reference: generateExternalReference(),
+                        customer_name: savedData.full_name || 'Customer',
+                        callback_url: 'https://dailyjobs.co.ke/api/payment-callback'
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success && result.status === 'QUEUED') {
+                    // Poll for transaction status
+                    const checkoutRequestID = result.CheckoutRequestID;
+                    let attempts = 0;
+                    const maxAttempts = 30; // 30 seconds timeout
+                    const interval = setInterval(async () => {
+                        attempts++;
+                        const statusResponse = await fetch(`https://yourdomain.com/api/transaction-status/${checkoutRequestID}`);
+                        const statusResult = await statusResponse.json();
+                        if (statusResult.status && statusResult.response.ResultCode === 0) {
+                            clearInterval(interval);
+                            paymentLoading.classList.add('hidden');
+                            successNotification.style.display = 'flex';
+                            setTimeout(() => {
+                                window.location.href = 'https://dailyjobs.co.ke/p/cover-letter-download.html';
+                            }, 2000);
+                        } else if (attempts >= maxAttempts || (statusResult.response && statusResult.response.ResultCode !== 0)) {
+                            clearInterval(interval);
+                            paymentLoading.classList.add('hidden');
+                            paymentMessage.textContent = statusResult.response?.ResultDesc || 'Payment failed or timed out. Please try again.';
+                            paymentMessage.classList.remove('hidden');
+                            payButton.disabled = false;
+                        }
+                    }, 1000);
+                } else {
+                    throw new Error(result.message || 'Payment initiation failed');
+                }
+            } catch (error) {
+                paymentLoading.classList.add('hidden');
+                paymentMessage.textContent = 'Payment failed: ' + error.message;
+                paymentMessage.classList.remove('hidden');
+                payButton.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
