@@ -27,7 +27,7 @@ app.post('/api/initiate-payment', async (req, res) => {
     console.log('Initiating payment with payload:', payload);
 
     try {
-        const response = await axios.post('https://api.payhero.co.ke/payments/payment/', payload, {
+        const response = await axios.post('https://backend.payhero.co.ke/api/v2/payments', payload, {
             headers: {
                 'Authorization': PAYHERO_AUTH_TOKEN,
                 'Content-Type': 'application/json'
@@ -56,7 +56,7 @@ app.get('/api/transaction-status', async (req, res) => {
     console.log(`Checking status for reference: ${reference}`);
 
     try {
-        const response = await axios.get(`https://api.payhero.co.ke/payments/status/?reference=${reference}`, {
+        const response = await axios.get(`https://backend.payhero.co.ke/api/v2/payments/status?reference=${reference}`, {
             headers: {
                 'Authorization': PAYHERO_AUTH_TOKEN
             }
