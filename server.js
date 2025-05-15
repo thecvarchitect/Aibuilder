@@ -19,8 +19,8 @@ app.use('/api/initiate-payment', limiter);
 const sessions = {};
 
 // Pay Hero API configuration
-const PAYHERO_API_URL = 'https://backend.payhero.co.ke/api/v2';
-const PAYHERO_AUTH_TOKEN = 'Basic eUpqa2gwZ1RRVVdFTzJXRG42a0Q6T3FEelBnRDRwZHFsdkNQaUJHcGVqcEJjNUdPMjJNQWFmSTdDd1EwOQ==';
+const PAYHERO_API_URL = process.env.PAYHERO_API_URL || 'https://backend.payhero.co.ke/api/v2';
+const PAYHERO_AUTH_TOKEN = process.env.PAYHERO_AUTH_TOKEN || 'Basic eUpqa2gwZ1RRVVdFTzJXRG42a0Q6T3FEelBnRDRwZHFsdkNQaUJHcGVqcEJjNUdPMjJNQWFmSTdDd1EwOQ==';
 const CALLBACK_URL = 'https://dailyjobs.co.ke/api/payment-callback';
 
 // Initiate STK Push
@@ -98,4 +98,6 @@ app.get('/api/transaction-status/:checkoutRequestID', async (req, res) => {
     }
 });
 
-app.listen(3000, () => console.log('Server running on port 3000'));
+// Use Render's dynamic port
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log(`Server running on port ${port}`));
