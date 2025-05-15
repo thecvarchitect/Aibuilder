@@ -85,7 +85,7 @@
             const successNotification = document.getElementById('successNotification');
             const phoneNumber = phoneNumberInput.value;
 
-            if (!phone_number.match(/^07[0-9]{8}$/)) {
+            if (!phoneNumber.match(/^07[0-9]{8}$/)) {
                 paymentMessage.textContent = 'Please enter a valid M-PESA registered phone number (e.g., 0712345678)';
                 paymentMessage.classList.remove('hidden');
                 phoneNumberInput.classList.add('invalid');
@@ -108,7 +108,7 @@
                         provider: 'm-pesa',
                         external_reference: generateExternalReference(),
                         customer_name: savedData.full_name || 'Customer',
-                        callback_url: 'https://thecvarchitect.github.io/Aibuilder/api/payment-callback'
+                        callback_url: 'https://aibuilder.onrender.com/api/payment-callback'
                     })
                 });
 
