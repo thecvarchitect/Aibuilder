@@ -32,12 +32,10 @@ app.post('/api/initiate-payment', async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        // Validate phone number
         if (!phone_number.match(/^07[0-9]{8}$/)) {
             return res.status(400).json({ error: 'Invalid phone number format. Use 0712345678 format.' });
         }
 
-        // Store cover letter data in session
         const session_id = external_reference;
         sessions[session_id] = {
             coverLetterData: req.body.coverLetterData || null,
@@ -66,7 +64,7 @@ app.post('/api/initiate-payment', async (req, res) => {
 
         res.json(response.data);
     } catch (error) {
-        console.error('Error in /api/initiate-payment:', error); // Add logging
+        console.error('Error in /api/initiate-payment:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -81,7 +79,7 @@ app.post('/api/payment-callback', (req, res) => {
         }
         res.json({ status: 'received' });
     } catch (error) {
-        console.error('Error in /api/payment-callback:', error); // Add logging
+        console.error('Error in /api/payment-callback:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -90,15 +88,21 @@ app.post('/api/payment-callback', (req, res) => {
 app.get('/api/transaction-status/:checkoutRequestID', async (req, res) => {
     try {
         const { checkoutRequestID } = req.params;
+        console.log(`Checking status for CheckoutRequestID: ${checkoutRequestID}`);
         const response = await axios.get(`${PAYHERO_API_URL}/transaction/status/${checkoutRequestID}`, {
             headers: {
                 'Authorization': PAYHERO_AUTH_TOKEN
             }
         });
+
         res.json(response.data);
     } catch (error) {
-        console.error('Error in /api/transaction-status:', error); // Add logging
-        res.status(500).json({ error: error.message });
+        console.error(`Error in /api/transaction-status for ${checkoutRequestID}:`, error.response ? error.response.data : error.message);
+        if (error.response && error.response.status === 404) {
+            res.status(404).json({ error: 'Transaction status not found on Pay Hero API' });
+        } else {
+            res.status(500).json({ error: 'Failed to check transaction status' });
+        }
     }
 });
 
