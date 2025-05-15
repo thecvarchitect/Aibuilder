@@ -1,48 +1,9 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Cover Letter Generator - DailyJobs.co.ke</title>
+    <title>The CV Architect - Cover Letter Generator</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
         .blurred { filter: blur(4px); pointer-events: none; user-select: none; }
@@ -264,15 +225,20 @@
 
         // Navigate pages
         function showPage(pageId) {
-            document.querySelectorAll('.page').forEach(page => page
-
-.classList.remove('active'));
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
             document.getElementById(pageId).classList.add('active');
         }
 
         // Go back to info page
         function goBackToInfo() {
             showPage('infoPage');
+        }
+
+        // Generate external reference
+        function generateExternalReference() {
+            const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            const random = Math.random().toString(36).substr(2, 6).toUpperCase();
+            return `CL_${date}_${random}`;
         }
 
         // Form submission
@@ -297,6 +263,10 @@
 
         // Pay button handler
         document.getElementById('payButton').addEventListener('click', () => {
+            const externalReference = generateExternalReference();
+            // Store external reference for tracking
+            localStorage.setItem('externalReference', externalReference);
+            // Redirect to payment.html on GitHub Pages
             window.location.href = 'payment.html';
         });
 
