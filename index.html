@@ -234,13 +234,6 @@
             showPage('infoPage');
         }
 
-        // Generate external reference
-        function generateExternalReference() {
-            const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-            const random = Math.random().toString(36).substr(2, 6).toUpperCase();
-            return `CL_${date}_${random}`;
-        }
-
         // Form submission
         document.getElementById('coverLetterForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -263,11 +256,10 @@
 
         // Pay button handler
         document.getElementById('payButton').addEventListener('click', () => {
-            const externalReference = generateExternalReference();
-            // Store external reference for tracking
-            localStorage.setItem('externalReference', externalReference);
+            // Ensure coverLetterData is saved before redirecting
+            saveFormData();
             // Redirect to payment.html on GitHub Pages
-            window.location.href = 'payment.html';
+            window.location.href = 'https://thecvarchitect.github.io/Aibuilder/payment.html';
         });
 
         async function generateCoverLetter() {
