@@ -8,8 +8,8 @@ const port = process.env.PORT || 10000;
 app.use(cors());
 app.use(express.json());
 
-const PAYHERO_AUTH_TOKEN = process.env.PAYHERO_AUTH_TOKEN || 'Basic ZGFpbHlqb2JzOjM4MTc4MDM3I0lk';
 const PAYHERO_API_URL = process.env.PAYHERO_API_URL || 'https://backend.payhero.co.ke/api/v2/payments';
+const PAYHERO_AUTH_TOKEN = process.env.PAYHERO_AUTH_TOKEN || 'Basic eUpqa2gwZ1RRVVdFTzJXRG42a0Q6T3FEelBnRDRwZHFsdkNQaUJHcGVqcEJjNUdPMjJNQWFmSTdDd1EwOQ==';
 
 app.post('/api/initiate-payment', async (req, res) => {
     const { phone_number, amount, channel_id, provider, network_code, external_reference, customer_name, callback_url, coverLetterData } = req.body;
@@ -27,6 +27,7 @@ app.post('/api/initiate-payment', async (req, res) => {
 
     console.log('Initiating payment with payload:', payload);
     console.log('Using PAYHERO_API_URL:', PAYHERO_API_URL);
+    console.log('Using PAYHERO_AUTH_TOKEN:', PAYHERO_AUTH_TOKEN);
 
     try {
         const response = await axios.post(PAYHERO_API_URL, payload, {
