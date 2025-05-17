@@ -44,10 +44,13 @@
             text-align: center;
         }
         .payment-status {
-            display: none;
             padding: 15px;
             border-radius: 5px;
             margin-top: 20px;
+            text-align: center;
+        }
+        .error {
+            color: #dc3545; /* Bootstrap danger color */
         }
         #loader {
             display: none;
@@ -182,8 +185,11 @@
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
 
-                // Hide any previous payment status
-                document.getElementById('paymentStatus').style.display = 'none';
+                // Reset payment status display
+                const statusElement = document.getElementById('paymentStatus');
+                statusElement.className = 'payment-status';
+                statusElement.textContent = '';
+                statusElement.style.display = 'none';
 
                 // Generate a unique reference
                 const reference = `REF_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -205,15 +211,20 @@
 
                 const response = await fetch('https://aibuilder.onrender.com/api/initiate-payment', {
                     method: 'POST',
+                    mode: 'cors',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify(payload)
                 });
 
-                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status} - ${response.statusText}`);
+                }
 
-                if (!response.ok || !result.success) {
+                const result = await response.json();
+                if (!result || typeof result !== 'object' || !result.success) {
                     throw new Error(result.error || 'Failed to initiate payment');
                 }
 
@@ -223,14 +234,21 @@
                 startPaymentStatusCheck(result.reference);
             } catch (error) {
                 console.error('Form submission error:', error);
+                const statusElement = document.getElementById('paymentStatus');
                 let errorMessage = error.message === 'Failed to fetch'
                     ? 'Network error: Unable to connect to the server. Please check your internet connection.'
                     : error.message.includes('401')
                     ? 'Authentication failed. Please contact support.'
                     : error.message.includes('404')
                     ? 'Service unavailable. Please try again later.'
+                    : error.message.includes('HTTP error')
+                    ? `Server error: ${error.message}`
                     : 'An error occurred during payment processing. Please try again.';
-                Swal.fire('Error', errorMessage, 'error');
+                statusElement.className = 'payment-status error';
+                statusElement.textContent = errorMessage;
+                statusElement.style.display = 'block';
+                statusElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
                 // Reset button state
                 const submitBtn = document.getElementById('submitBtn');
                 submitBtn.disabled = false;
@@ -239,73 +257,92 @@
             }
         });
 
-        function startPaymentStatusCheck(reference) {
+        async function startPaymentStatusCheck(reference) {
             let attempts = 0;
-            const maxAttempts = 90; // 90 seconds (increased from 60)
+            const maxAttempts = 90; // 90 seconds
             const interval = 1000; // Check every second
-
-            const intervalId = setInterval(async () => {
-                attempts++;
-                try {
-                    const response = await fetch(`https://aibuilder.onrender.com/api/transaction-status?reference=${reference}`);
-                    const statusResult = await response.json();
-
-                    console.log('Payment status:', statusResult);
-
-                    if (!response.ok || !statusResult.success) {
-                        throw new Error(statusResult.error || 'Failed to check payment status');
-                    }
-
-                    if (statusResult.status === 'COMPLETED') {
-                        clearInterval(intervalId);
-                        Swal.fire({
-                            title: 'Payment Successful',
-                            text: 'Your payment has been processed successfully!',
-                            icon: 'success',
-                            confirmButtonText: 'Continue'
-                        }).then(() => {
-                            window.location.href = paymentConfig.successURL;
-                        });
-                        return;
-                    } else if (statusResult.status === 'FAILED') {
-                        throw new Error('Payment failed');
-                    }
-
-                    if (attempts >= maxAttempts) {
-                        clearInterval(intervalId);
-                        throw new Error('Payment processing timed out');
-                    }
-                } catch (error) {
-                    clearInterval(intervalId);
-                    console.error('Payment status check error:', error);
-                    Swal.fire({
-                        title: 'Payment Failed',
-                        text: error.message === 'Payment processing timed out'
-                            ? 'Payment processing failed or timed out.'
-                            : 'Payment failed. Please try again.',
-                        icon: 'error',
-                        confirmButtonText: 'Try Again'
-                    }).then(() => {
-                        window.location.href = paymentConfig.failedURL;
-                    });
-                    // Reset button state
-                    const submitBtn = document.getElementById('submitBtn');
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="bi bi-credit-card-fill me-2"></i> Pay Now Ksh 36';
-                    document.getElementById('loader').style.display = 'none';
-                }
-            }, interval);
-        }
-
-        function showPaymentStatus(type, message) {
             const statusElement = document.getElementById('paymentStatus');
-            statusElement.className = `payment-status alert alert-${type}`;
-            statusElement.textContent = message;
-            statusElement.style.display = 'block';
-            statusElement.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center'
-            });
+
+            try {
+                const intervalId = setInterval(async () => {
+                    attempts++;
+                    try {
+                        const response = await fetch(`https://aibuilder.onrender.com/api/transaction-status?reference=${reference}`, {
+                            mode: 'cors',
+                            headers: { 'Accept': 'application/json' }
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status} - ${response.statusText}`);
+                        }
+
+                        const statusResult = await response.json();
+                        if (!statusResult || typeof statusResult !== 'object') {
+                            throw new Error('Invalid response format');
+                        }
+
+                        console.log('Payment status:', statusResult);
+
+                        if (statusResult.success === false) {
+                            throw new Error(statusResult.error || 'Failed to check payment status');
+                        }
+
+                        if (statusResult.success) {
+                            if (statusResult.status === 'COMPLETED') {
+                                clearInterval(intervalId);
+                                statusElement.className = 'payment-status alert alert-success';
+                                statusElement.textContent = 'Payment successful! Redirecting...';
+                                statusElement.style.display = 'block';
+                                statusElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                setTimeout(() => window.location.href = paymentConfig.successURL, 2000);
+                                return;
+                            } else if (statusResult.status === 'FAILED') {
+                                throw new Error('Payment failed');
+                            } else {
+                                statusElement.className = 'payment-status alert alert-info';
+                                statusElement.textContent = `Payment status: ${statusResult.status}`;
+                                statusElement.style.display = 'block';
+                            }
+                        }
+
+                        if (attempts >= maxAttempts) {
+                            throw new Error('Payment processing timed out');
+                        }
+                    } catch (error) {
+                        clearInterval(intervalId);
+                        console.error('Payment status check error:', error);
+                        statusElement.className = 'payment-status error';
+                        statusElement.textContent = error.message === 'Payment processing timed out'
+                            ? 'Payment processing failed or timed out.'
+                            : error.message.includes('HTTP error')
+                            ? `Server error: ${error.message}`
+                            : 'Payment failed. Please try again.';
+                        statusElement.style.display = 'block';
+                        statusElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                        // Reset button state
+                        const submitBtn = document.getElementById('submitBtn');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="bi bi-credit-card-fill me-2"></i> Pay Now Ksh 36';
+                        document.getElementById('loader').style.display = 'none';
+
+                        // Optionally redirect after failure
+                        setTimeout(() => window.location.href = paymentConfig.failedURL, 3000);
+                    }
+                }, interval);
+            } catch (error) {
+                console.error('Payment check failed to start:', error);
+                statusElement.className = 'payment-status error';
+                statusElement.textContent = 'Failed to start payment check due to an error';
+                statusElement.style.display = 'block';
+                statusElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // Reset button state
+                const submitBtn = document.getElementById('submitBtn');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-credit-card-fill me-2"></i> Pay Now Ksh 36';
+                document.getElementById('loader').style.display = 'none';
+            }
         }
     </script>
 </body>
