@@ -19,7 +19,7 @@ const paymentStatuses = new Map();
 
 app.post('/api/initiate-payment', async (req, res) => {
   const { phone_number, amount, channel_id, provider, network_code, external_reference, customer_name, callback_url } = req.body;
-  console.log('Initiating payment with payload:', req.body);
+  console.log('Initiating payment with payload:', { phone_number, amount, external_reference, callback_url });
   try {
     const response = await axios.post('https://backend.payhero.co.ke/api/v2/payments', {
       phone_number, amount, channel_id, provider, network_code, external_reference, customer_name, callback_url
@@ -39,11 +39,14 @@ app.post('/api/initiate-payment', async (req, res) => {
 });
 
 app.post('/api/payment-callback', (req, res) => {
+  console.log('Received callback raw:', req.body);
   const { ExternalReference, Status } = req.body;
-  console.log('Received callback:', req.body);
   if (ExternalReference && Status) {
-    paymentStatuses.set(ExternalReference, { status: Status.toUpperCase(), details: req.body });
-    console.log(`Updated status for reference ${ExternalReference} to ${Status}`);
+    const upperCaseStatus = Status.toUpperCase();
+    paymentStatuses.set(ExternalReference, { status: upperCaseStatus, details: req.body });
+    console.log(`Updated status for reference ${ExternalReference} to ${upperCaseStatus}`);
+  } else {
+    console.error('Invalid callback payload:', req.body);
   }
   res.json({ success: true });
 });
