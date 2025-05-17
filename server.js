@@ -5,6 +5,9 @@ const axios = require('axios');
 const app = express();
 const port = process.env.PORT || 10000;
 
+// In-memory storage for payment statuses
+const paymentStatuses = new Map();
+
 app.use(cors());
 app.use(express.json());
 
@@ -38,6 +41,8 @@ app.post('/api/initiate-payment', async (req, res) => {
         });
 
         console.log('Pay Hero response:', response.data);
+        // Initialize status as QUEUED
+        paymentStatuses.set(response.data.reference, { status: 'QUEUED', details: response.data });
         res.json({ success: true, reference: response.data.reference || external_reference });
     } catch (error) {
         console.error('Error in /api/initiate-payment:', {
@@ -55,31 +60,28 @@ app.post('/api/initiate-payment', async (req, res) => {
 
 app.post('/api/payment-callback', (req, res) => {
     console.log('Received callback:', req.body);
+    const { response } = req.body;
+    if (response && response.CheckoutRequestID && response.ExternalReference) {
+        const reference = response.ExternalReference;
+        const status = response.Status === 'Success' ? 'COMPLETED' : 'FAILED';
+        paymentStatuses.set(reference, { status, details: response });
+    }
     res.status(200).send('Callback received');
 });
 
-app.get('/api/transaction-status', async (req, res) => {
+app.get('/api/transaction-status', (req, res) => {
     const { reference } = req.query;
 
     console.log(`Checking status for reference: ${reference}`);
-    const statusUrl = `${PAYHERO_API_URL}/status?reference=${reference}`;
 
-    try {
-        const response = await axios.get(statusUrl, {
-            headers: {
-                'Authorization': PAYHERO_AUTH_TOKEN
-            }
-        });
-
-        console.log('Transaction status response:', response.data);
-        res.json(response.data);
-    } catch (error) {
-        console.error('Error in /api/transaction-status:', error.response ? error.response.data : error.message);
-        res.status(error.response ? error.response.status : 500).json({
-            success: false,
-            error: error.response ? error.response.data : error.message
-        });
+    const paymentStatus = paymentStatuses.get(reference);
+    if (!paymentStatus) {
+        res.status(404).json({ success: false, error: 'Transaction not found' });
+        return;
     }
+
+    console.log('Transaction status response:', paymentStatus);
+    res.json({ success: true, status: paymentStatus.status, details: paymentStatus.details });
 });
 
 app.listen(port, () => {
