@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: Aibuilder-PHP
+    env: php
+    repo: https://github.com/thecvarchitect/Aibuilder
+    branch: main
+    rootDir: .
+    autoDeploy: true
+    routes:
+      - path: /
+        file: index.php
+      - path: /callback
+        file: callback.php
+      - path: /index.php
+        file: index.php
