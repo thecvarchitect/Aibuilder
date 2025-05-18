@@ -1,4 +1,0 @@
-echo "8.1" > .php-version
-git add .php-version
-git commit -m "Add PHP version hint"
-git push origin main
